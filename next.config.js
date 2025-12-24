@@ -4,22 +4,12 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '*.supabase.co',
-      },
-      {
-        protocol: 'https',
-        hostname: 'avatars.githubusercontent.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'lh3.googleusercontent.com',
+        hostname: '**',
       },
     ],
   },
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '10mb',
-    },
+  typescript: {
+    ignoreBuildErrors: process.env.CI !== 'true',
   },
 }
 

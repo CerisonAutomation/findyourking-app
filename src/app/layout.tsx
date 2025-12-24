@@ -1,33 +1,31 @@
 import type { Metadata } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
 import { Providers } from '@/components/providers'
-import { Header } from '@/components/header'
-import '@/styles/globals.css'
+import './globals.css'
+
+const geistSans = Geist({
+  subsets: ['latin'],
+  variable: '--font-geist-sans',
+})
+
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-geist-mono',
+})
 
 export const metadata: Metadata = {
-  title: 'FindYourKing - Premium Social Network',
-  description: 'Location-based dating and social networking platform with AI companions',
-  openGraph: {
-    type: 'website',
-    locale: 'en_US',
-    url: 'https://findyourking.app',
-    siteName: 'FindYourKing',
+  title: 'FindYourKing - Meet Amazing People',
+  description: 'Connect, discover, and build relationships with people in your area.',
+  icons: {
+    icon: '/favicon.ico',
   },
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-        <Providers>
-          <Header />
-          <main className="min-h-screen">
-            {children}
-          </main>
-        </Providers>
+      <body className={`${geistSans.variable} ${geistMono.variable} bg-slate-900`}>
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

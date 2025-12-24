@@ -1,16 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { Header } from '@/components/header'
+import { Sidebar } from '@/components/sidebar'
+import { BottomNav } from '@/components/bottom-nav'
 import { ProfileHeader } from '@/components/profile/profile-header'
 import { ProfileStats } from '@/components/profile/profile-stats'
 import { ProfilePhotos } from '@/components/profile/profile-photos'
 import { CompanionSection } from '@/components/profile/companion-section'
 import { Button } from '@/components/ui/button'
-import { LogOut, Edit } from 'lucide-react'
+import { supabase } from '@/lib/supabase/client'
+import { Edit, LogOut } from 'lucide-react'
 import Link from 'next/link'
-import toast from 'react-hot-toast'
+import { useRouter } from 'next/navigation'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -19,98 +21,83 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const { data: userData } = await supabase.auth.getUser()
+        if (!userData.user) return
+
+        const { data: profileData, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userData.user.id)
+          .single()
+
+        if (error) throw error
+        setProfile(profileData)
+
+        const { data: companionData } = await supabase
+          .from('companions')
+          .select('*')
+          .eq('owner_id', userData.user.id)
+          .single()
+
+        setCompanion(companionData || null)
+      } catch (error) {
+        console.error('Error fetching profile:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
     fetchProfile()
-    fetchCompanion()
   }, [])
 
-  const fetchProfile = async () => {
-    try {
-      const { data: userData } = await supabase.auth.getUser()
-      if (!userData.user) {
-        router.push('/login')
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userData.user.id)
-        .single()
-
-      if (error) throw error
-      setProfile(data)
-    } catch (err) {
-      console.error('Error fetching profile:', err)
-      toast.error('Failed to load profile')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchCompanion = async () => {
-    try {
-      const { data: userData } = await supabase.auth.getUser()
-      if (!userData.user) return
-
-      const { data } = await supabase
-        .from('companions')
-        .select('*')
-        .eq('owner_id', userData.user.id)
-        .single()
-
-      if (data) {
-        setCompanion(data)
-      }
-    } catch (err) {
-      console.error('Error fetching companion:', err)
-    }
-  }
-
   const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut()
-      router.push('/login')
-      toast.success('Logged out successfully')
-    } catch (err) {
-      toast.error('Failed to logout')
-    }
+    await supabase.auth.signOut()
+    router.push('/login')
   }
 
-  if (loading) {
-    return <div className="flex items-center justify-center p-8 text-slate-400">Loading...</div>
-  }
+  if (loading) return <div>Loading...</div>
+  if (!profile) return <div>Profile not found</div>
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">{profile?.display_name}</h1>
-          <p className="text-slate-400">@{profile?.username}</p>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/settings">
-            <Button variant="outline" size="icon">
-              <Edit className="h-4 w-4" />
-            </Button>
-          </Link>
-          <Button variant="outline" size="icon" onClick={handleLogout}>
-            <LogOut className="h-4 w-4" />
-          </Button>
+    <div className="flex h-screen flex-col bg-slate-900 md:flex-row">
+      <div className="hidden md:block md:w-64 flex-shrink-0 border-r border-slate-700">
+        <Sidebar />
+      </div>
+
+      <div className="flex flex-1 flex-col">
+        <Header />
+
+        <div className="flex-1 overflow-auto">
+          <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <h1 className="text-3xl font-bold text-white">Profile</h1>
+              <div className="flex gap-2">
+                <Link href="/profile/edit">
+                  <Button variant="outline">
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit
+                  </Button>
+                </Link>
+                <Button variant="destructive" onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
+                </Button>
+              </div>
+            </div>
+
+            <ProfileHeader profile={profile} />
+            <ProfileStats profile={profile} />
+            <ProfilePhotos profile={profile} />
+            <CompanionSection companion={companion} />
+          </div>
         </div>
       </div>
 
-      {/* Profile Header */}
-      {profile && <ProfileHeader profile={profile} />}
-
-      {/* Stats */}
-      {profile && <ProfileStats profile={profile} />}
-
-      {/* Photos */}
-      {profile && <ProfilePhotos profile={profile} />}
-
-      {/* AI Companion */}
-      <CompanionSection companion={companion} />
+      <div className="md:hidden border-t border-slate-700">
+        <BottomNav />
+      </div>
     </div>
   )
 }

@@ -1,99 +1,86 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase/client'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Header } from '@/components/header'
+import { Sidebar } from '@/components/sidebar'
+import { BottomNav } from '@/components/bottom-nav'
 import { GridView } from '@/components/explore/grid-view'
-import { MapView } from '@/components/explore/map-view'
 import { ListView } from '@/components/explore/list-view'
 import { FilterPanel } from '@/components/explore/filter-panel'
-import { Grid2X2, Map, List } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { supabase } from '@/lib/supabase/client'
+import { Grid, List, Map } from 'lucide-react'
 
 export default function ExplorePage() {
   const [profiles, setProfiles] = useState([])
-  const [filteredProfiles, setFilteredProfiles] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState({
-    minAge: 18,
-    maxAge: 100,
-    maxDistance: 50,
-    interests: [],
-  })
+  const [view, setView] = useState<'grid' | 'list' | 'map'>('grid')
 
   useEffect(() => {
+    const fetchProfiles = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('is_premium', false)
+          .limit(50)
+
+        if (error) throw error
+        setProfiles(data || [])
+      } catch (error) {
+        console.error('Error fetching profiles:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
     fetchProfiles()
   }, [])
 
-  const fetchProfiles = async () => {
-    try {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .limit(50)
-
-      if (error) throw error
-      setProfiles(data || [])
-      setFilteredProfiles(data || [])
-    } catch (err) {
-      console.error('Error fetching profiles:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const applyFilters = (newFilters: typeof filters) => {
-    setFilters(newFilters)
-    // Filter logic here
-    const filtered = profiles.filter((profile: any) => {
-      const age = new Date().getFullYear() - new Date(profile.date_of_birth).getFullYear()
-      return age >= newFilters.minAge && age <= newFilters.maxAge
-    })
-    setFilteredProfiles(filtered)
-  }
-
   return (
-    <div className="flex gap-4 p-4 md:p-6">
-      {/* Filters - Desktop */}
-      <div className="hidden w-64 lg:block">
-        <FilterPanel onFiltersChange={applyFilters} />
+    <div className="flex h-screen flex-col bg-slate-900 md:flex-row">
+      {/* Sidebar for desktop */}
+      <div className="hidden md:block md:w-64 flex-shrink-0 border-r border-slate-700">
+        <Sidebar />
       </div>
 
       {/* Main content */}
-      <div className="flex-1">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-white">Discover</h1>
-          <p className="text-slate-400">Find your people nearby</p>
+      <div className="flex flex-1 flex-col">
+        <Header />
+
+        <div className="flex-1 overflow-auto">
+          <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+            {/* View toggle */}
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant={view === 'grid' ? 'default' : 'outline'}
+                onClick={() => setView('grid')}
+              >
+                <Grid className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant={view === 'list' ? 'default' : 'outline'}
+                onClick={() => setView('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Filters */}
+            <FilterPanel onFiltersChange={console.log} />
+
+            {/* Results */}
+            {view === 'grid' && <GridView profiles={profiles} loading={loading} />}
+            {view === 'list' && <ListView profiles={profiles} loading={loading} />}
+          </div>
         </div>
+      </div>
 
-        <Tabs defaultValue="grid" className="w-full">
-          <TabsList className="mb-6 grid w-full grid-cols-3 md:w-auto">
-            <TabsTrigger value="grid" className="flex items-center gap-2">
-              <Grid2X2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Grid</span>
-            </TabsTrigger>
-            <TabsTrigger value="map" className="flex items-center gap-2">
-              <Map className="h-4 w-4" />
-              <span className="hidden sm:inline">Map</span>
-            </TabsTrigger>
-            <TabsTrigger value="list" className="flex items-center gap-2">
-              <List className="h-4 w-4" />
-              <span className="hidden sm:inline">List</span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="grid">
-            <GridView profiles={filteredProfiles} loading={loading} />
-          </TabsContent>
-
-          <TabsContent value="map">
-            <MapView profiles={filteredProfiles} loading={loading} />
-          </TabsContent>
-
-          <TabsContent value="list">
-            <ListView profiles={filteredProfiles} loading={loading} />
-          </TabsContent>
-        </Tabs>
+      {/* Bottom nav for mobile */}
+      <div className="md:hidden border-t border-slate-700">
+        <BottomNav />
       </div>
     </div>
   )

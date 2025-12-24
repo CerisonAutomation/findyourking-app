@@ -1,101 +1,87 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
+import { Header } from '@/components/header'
+import { Sidebar } from '@/components/sidebar'
+import { BottomNav } from '@/components/bottom-nav'
 import { BookingCard } from '@/components/bookings/booking-card'
-import { BookingCalendar } from '@/components/bookings/booking-calendar'
-import { Plus, Calendar } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { supabase } from '@/lib/supabase/client'
+import { Plus } from 'lucide-react'
 import Link from 'next/link'
 
 export default function BookingsPage() {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState<'list' | 'calendar'>('list')
 
   useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        const { data: userData } = await supabase.auth.getUser()
+        if (!userData.user) return
+
+        const { data, error } = await supabase
+          .from('bookings')
+          .select(`
+            *,
+            participant:profiles(display_name, avatar_url)
+          `)
+          .or(`creator_id.eq.${userData.user.id},participant_id.eq.${userData.user.id}`)
+          .order('start_time', { ascending: true })
+
+        if (error) throw error
+        setBookings(data || [])
+      } catch (error) {
+        console.error('Error fetching bookings:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
     fetchBookings()
   }, [])
 
-  const fetchBookings = async () => {
-    try {
-      setLoading(true)
-      const { data: userData } = await supabase.auth.getUser()
-      if (!userData.user) return
-
-      const { data, error } = await supabase
-        .from('bookings')
-        .select(`
-          *,
-          creator:creator_id(display_name, avatar_url),
-          participant:participant_id(display_name, avatar_url)
-        `)
-        .or(`creator_id.eq.${userData.user.id},participant_id.eq.${userData.user.id}`)
-        .order('start_time', { ascending: true })
-
-      if (error) throw error
-      setBookings(data || [])
-    } catch (err) {
-      console.error('Error fetching bookings:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 text-3xl font-bold text-white">
-            <Calendar className="h-8 w-8" />
-            My Bookings
-          </h1>
-          <p className="text-slate-400">Manage your scheduled meetups</p>
-        </div>
-        <Link href="/bookings/create">
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-            New Booking
-          </Button>
-        </Link>
+    <div className="flex h-screen flex-col bg-slate-900 md:flex-row">
+      <div className="hidden md:block md:w-64 flex-shrink-0 border-r border-slate-700">
+        <Sidebar />
       </div>
 
-      <div className="flex gap-4 border-b border-slate-700">
-        <button
-          onClick={() => setView('list')}
-          className={`px-4 py-2 font-medium transition-colors ${
-            view === 'list'
-              ? 'border-b-2 border-gold-400 text-gold-400'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          List View
-        </button>
-        <button
-          onClick={() => setView('calendar')}
-          className={`px-4 py-2 font-medium transition-colors ${
-            view === 'calendar'
-              ? 'border-b-2 border-gold-400 text-gold-400'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          Calendar
-        </button>
+      <div className="flex flex-1 flex-col">
+        <Header />
+
+        <div className="flex-1 overflow-auto">
+          <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <h1 className="text-3xl font-bold text-white">Bookings</h1>
+              <Link href="/bookings/create">
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Booking
+                </Button>
+              </Link>
+            </div>
+
+            <div className="space-y-4">
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="rounded-lg bg-slate-800 animate-pulse h-24" />
+                ))
+              ) : bookings.length === 0 ? (
+                <div className="text-center text-slate-400 py-12">
+                  No bookings yet
+                </div>
+              ) : (
+                bookings.map((booking) => <BookingCard key={booking.id} booking={booking} />)
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {view === 'list' ? (
-        <div className="space-y-4">
-          {loading ? (
-            <div className="text-center text-slate-400">Loading bookings...</div>
-          ) : bookings.length === 0 ? (
-            <div className="text-center text-slate-400">No bookings yet</div>
-          ) : (
-            bookings.map((booking: any) => <BookingCard key={booking.id} booking={booking} />)
-          )}
-        </div>
-      ) : (
-        <BookingCalendar bookings={bookings} />
-      )}
+      <div className="md:hidden border-t border-slate-700">
+        <BottomNav />
+      </div>
     </div>
   )
 }

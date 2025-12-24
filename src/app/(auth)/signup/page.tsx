@@ -1,18 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import Link from 'next/link'
+import { Crown, Loader } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function SignupPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [displayName, setDisplayName] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -20,85 +20,69 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       })
 
-      if (authError) {
-        toast.error(authError.message)
-        return
-      }
-
-      if (authData.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: authData.user.id,
-            display_name: displayName,
-            username: email.split('@')[0],
-            date_of_birth: new Date().toISOString().split('T')[0],
-            gender: 'prefer-not-to-say',
-          })
-
-        if (profileError) {
-          toast.error(profileError.message)
-          return
-        }
-      }
-
-      toast.success('Account created! Please verify your email.')
-      router.push('/login')
-    } catch (err) {
-      toast.error('An error occurred')
+      if (error) throw error
+      toast.success('Check your email to confirm your account!')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Signup failed')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="space-y-6 rounded-2xl border border-slate-700 bg-slate-800/50 p-8 backdrop-blur-xl">
-      <div className="space-y-2 text-center">
-        <h1 className="text-3xl font-bold text-gold-400">Join FindYourKing</h1>
-        <p className="text-slate-400">Your premium social network awaits</p>
-      </div>
+    <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4">
+      <div className="w-full max-w-md">
+        <div className="mb-8 text-center">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <Crown className="h-8 w-8 text-gold-400" />
+            <h1 className="text-3xl font-bold text-gold-400">FindYourKing</h1>
+          </div>
+          <p className="text-slate-400">Create your account</p>
+        </div>
 
-      <form onSubmit={handleSignup} className="space-y-4">
-        <Input
-          type="text"
-          placeholder="Display Name"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-          disabled={loading}
-          required
-        />
-        <Input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={loading}
-          required
-        />
-        <Input
-          type="password"
-          placeholder="Password (min 8 characters)"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          disabled={loading}
-          minLength={8}
-          required
-        />
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? 'Creating account...' : 'Create Account'}
-        </Button>
-      </form>
+        <form onSubmit={handleSignup} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Email</label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              disabled={loading}
+            />
+          </div>
 
-      <div className="text-center text-sm text-slate-400">
-        Already have an account?{' '}
-        <Link href="/login" className="text-gold-400 hover:text-gold-300">
-          Sign in
-        </Link>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Password</label>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              disabled={loading}
+            />
+          </div>
+
+          <Button className="w-full" disabled={loading}>
+            {loading && <Loader className="mr-2 h-4 w-4 animate-spin" />}
+            Create Account
+          </Button>
+        </form>
+
+        <p className="text-center text-sm text-slate-400 mt-6">
+          Already have an account?{' '}
+          <Link href="/login" className="text-gold-400 hover:text-gold-300">
+            Sign in
+          </Link>
+        </p>
       </div>
     </div>
   )

@@ -1,54 +1,47 @@
-import { createClient } from '@/lib/supabase/server'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { supabase } from '@/lib/supabase'
+import { apiError, apiSuccess } from '@/lib/api-helpers'
 
 export async function GET(request: NextRequest) {
-  const supabase = createClient()
-  const now = new Date().toISOString()
-
   try {
-    const { data, error } = await supabase
+    const searchParams = request.nextUrl.searchParams
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100)
+    const offset = (page - 1) * limit
+
+    const { data, error, count } = await supabase
       .from('events')
-      .select(`
-        *,
-        creator:profiles(*)
-      `)
-      .gte('start_time', now)
+      .select('*', { count: 'exact' })
       .order('start_time', { ascending: true })
-      .limit(50)
+      .range(offset, offset + limit - 1)
 
-    if (error) throw error
+    if (error) return apiError(error.message, 500)
 
-    return NextResponse.json(data)
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    )
+    return apiSuccess({
+      items: data,
+      total: count,
+      page,
+      limit,
+    })
+  } catch (err: any) {
+    return apiError(err.message, 500)
   }
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient()
-  const { data: userData } = await supabase.auth.getUser()
-
-  if (!userData.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
-    const body = await request.json()
-    const { data, error } = await supabase.from('events').insert({
-      ...body,
-      creator_id: userData.user.id,
-    })
+    const event = await request.json()
 
-    if (error) throw error
+    const { data, error } = await supabase
+      .from('events')
+      .insert([event])
+      .select()
+      .single()
 
-    return NextResponse.json(data)
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    )
+    if (error) return apiError(error.message, 400)
+
+    return apiSuccess(data, 201)
+  } catch (err: any) {
+    return apiError(err.message, 500)
   }
 }
